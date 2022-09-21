@@ -1,5 +1,13 @@
 # Scraping_market (Telegram Bot - ___@DiscountProductMarket_Bot___)
 
+## Technologies used
+- Aiogram
+- SQLite
+- Requests
+- BeautifulSoup
+- selenium
+
+
 ## Description
 ___Scraping_market___ is a telegram bot project that collects information on all actual discounts from Ukrainian supermarkets ___Novus, Fora, ATB, Velmart, Silpo, Auchan___ and import this data into the database SQLite. 
 When the user enters the telegram bot and calls the / start command, he will be asked to select the supermarkets that are relevant to him.
@@ -17,3 +25,7 @@ The admin of this bot has an additional button panel in which there is one more 
 When you click on the update database button, site scraping starts, the old table in the database is deleted, a new one is created with fresh data
 
 Admin bot is determined by user_id telegram
+
+![imgonline-com-ua-Resize-WgydtE6wxd2](https://user-images.githubusercontent.com/96794562/191496848-f0d049ff-96d4-4f7a-9971-7025b76d2510.jpg)
+
+
