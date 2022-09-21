@@ -3,7 +3,7 @@
 ## Technologies used
 - Aiogram
 - SQLite
-- Requests
+- requests
 - BeautifulSoup
 - selenium
 
