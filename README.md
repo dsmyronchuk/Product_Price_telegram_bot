@@ -11,3 +11,9 @@ After that, the user has two functions to download all the current discounts for
 ![imgonline-com-ua-Resize-WX2f28WxKlHL](https://user-images.githubusercontent.com/96794562/191489054-58aa70d2-7e0e-4f3f-a443-fa1a8b67b533.jpg)
 
 ![imgonline-com-ua-Resize-kogZD3cpVFP20V](https://user-images.githubusercontent.com/96794562/191489462-e49a7928-0248-463d-98c5-10584a87dd9d.jpg)
+
+## Admin account
+The admin of this bot has an additional button panel in which there is one more command - update the database.
+When you click on the update database button, site scraping starts, the old table in the database is deleted, a new one is created with fresh data
+
+Admin bot is determined by user_id telegram
