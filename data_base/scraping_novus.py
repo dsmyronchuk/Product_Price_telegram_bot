@@ -10,7 +10,7 @@ def scrap_novus():
         url = f'https://novus.ua/sales.html?p={page}'
         response = requests.get(url, headers=headers)
         pars = BeautifulSoup(response.text, 'lxml')
-        print(f'Novus page {page}"')
+        print(f'Novus page {page}')
         button_stop = False
 
         for item in pars.find_all('li', class_='item product product-item'):

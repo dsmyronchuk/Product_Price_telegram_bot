@@ -33,4 +33,4 @@ def scrap_atb():
                                           int(100 - ((float(new_price) / float(old_price)) * 100)),
                                           url_img)
 
-        print('Scraping ATB ended')
+    print('Scraping ATB ended')
