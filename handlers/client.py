@@ -17,7 +17,7 @@ async def start_handler(message: types.Message):
     welcome_text = f'Вітання! Я – бот для пошуку цін на продуки в супермаркетах України. Якщо ви маєте запитання, ' \
                    f'ви можете знайти більше інформації на нашому сайті https://productprice.store.'
 
-    requests.post(f'http://127.0.0.1:8000/api/telegram_user/create/{message.chat.id}/')
+    requests.post(f'https://productprice.store/api/telegram_user/create/{message.chat.id}/')
     await message.answer(welcome_text, reply_markup=client_button.bt_client)
 
 
@@ -36,11 +36,11 @@ async def choice_market_callback(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
     # add/remove a store from the list
-    send_market = requests.post(f'http://127.0.0.1:8000/api/UserMarketRelation/{user_id}/{selected_market}/')
+    send_market = requests.post(f'https://productprice.store/api/UserMarketRelation/{user_id}/{selected_market}/')
     send_market_message = send_market.json()['message']
 
     # processing the full list of stores selected by the user
-    get_list_markets = requests.get(f'http://127.0.0.1:8000/api/markets_list/{user_id}/')
+    get_list_markets = requests.get(f'https://productprice.store/api/markets_list/{user_id}/')
     list_markets = [i['name'] for i in get_list_markets.json()]
 
     if len(list_markets) > 0:
@@ -57,7 +57,7 @@ async def search_products_input(message: types.Message):
     user_id = message.from_user.id
 
     # get a complete list of selected markets by the user
-    get_list_markets = requests.get(f'http://127.0.0.1:8000/api/markets_list/{user_id}/')
+    get_list_markets = requests.get(f'https://productprice.store/api/markets_list/{user_id}/')
     list_markets = [i['name'] for i in get_list_markets.json()]
 
     if len(list_markets) > 0:
@@ -75,7 +75,7 @@ async def search_products_output(message: types.Message):
     user_id = message.from_user.id
     user_input = message.text
 
-    get_products = requests.get(f'http://127.0.0.1:8000/api/SearchProductsAPIView/{user_id}?search_text={user_input}')
+    get_products = requests.get(f'https://productprice.store/api/SearchProductsAPIView/{user_id}?search_text={user_input}')
     json_products = get_products.json()
 
     for product in json_products:
