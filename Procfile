@@ -1,0 +1,1 @@
+web: railway run python main.py
