@@ -1,121 +1,112 @@
 from aiogram import types, Dispatcher
 from create_bot import bot
-from button import client_button, admin_button
+from button import client_button
 from aiogram.types import ReplyKeyboardRemove
-from data_base import db_sqlite
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-import time
+from aiogram.dispatcher import FSMContext
+import requests
+import io
 
 
-user_market_choice = [dict()]
-
-
-async def command_start(message: types.Message):
-    if str(message.from_user.id) == '371752657':
-        await bot.send_message(message.from_user.id, 'admin mode activated', reply_markup=admin_button.bt_admin)
-    else:
-        await bot.send_message(message.from_user.id, 'welcome...', reply_markup=client_button.bt_client)
-        await message.delete()
-
-
-# Обработка команды 'Шукати_продукт_по_назві'
 class EnterProductFSM(StatesGroup):
     user_choice = State()
 
 
-async def input_product_part_1(message: types.Message):
-    # Если юзер выбрал магазины в функции 'Обиріть потрібні маркети'
-    if message.from_user.id in user_market_choice[0] and user_market_choice[0].get(message.from_user.id) != []:
+async def start_handler(message: types.Message):
+    welcome_text = f'Вітання! Я – бот для пошуку цін на продуки в супермаркетах України. Якщо ви маєте запитання, ' \
+                   f'ви можете знайти більше інформації на нашому сайті https://productprice.store.'
 
+    requests.post(f'http://127.0.0.1:8000/api/telegram_user/create/{message.chat.id}/')
+    await message.answer(welcome_text, reply_markup=client_button.bt_client)
+
+
+async def show_site_url(message: types.Message):
+    text = 'https://productprice.store/'
+    await message.answer(text, reply_markup=client_button.bt_client)
+
+
+# When you click the Вибрати_потрібні_маркети - display inline buttons in the chat
+async def choice_market_handler(message: types.Message):
+    await message.answer('Оберіть потрібні магазини', reply_markup=client_button.il_client)
+
+
+async def choice_market_callback(callback: types.CallbackQuery):
+    selected_market = callback.data.split('_')[1]
+    user_id = callback.from_user.id
+
+    # add/remove a store from the list
+    send_market = requests.post(f'http://127.0.0.1:8000/api/UserMarketRelation/{user_id}/{selected_market}/')
+    send_market_message = send_market.json()['message']
+
+    # processing the full list of stores selected by the user
+    get_list_markets = requests.get(f'http://127.0.0.1:8000/api/markets_list/{user_id}/')
+    list_markets = [i['name'] for i in get_list_markets.json()]
+
+    if len(list_markets) > 0:
+        format_list_markets = ', '.join(list_markets)
+    else:
+        format_list_markets = ''
+
+    await callback.answer(f"{send_market_message}\n\nВаш поточний список обраних магазинів: "
+                          f"{format_list_markets}",
+                          show_alert=True)
+
+
+async def search_products_input(message: types.Message):
+    user_id = message.from_user.id
+
+    # get a complete list of selected markets by the user
+    get_list_markets = requests.get(f'http://127.0.0.1:8000/api/markets_list/{user_id}/')
+    list_markets = [i['name'] for i in get_list_markets.json()]
+
+    if len(list_markets) > 0:
         await EnterProductFSM.user_choice.set()
         await bot.send_message(message.from_user.id, 'Введіть назву продукту в чат (Українській Мовою)\n'
                                                      'Наприклад: молоко, шампунь, печиво, цукерки...',
                                reply_markup=ReplyKeyboardRemove())
 
-    else:    # Если юзер не выбрал магазины
+    else:    # if the user does not have any selected store,  display inline buttons in the chat
         await bot.send_message(message.from_user.id, 'Спочатку виберіть потрібні вам маркети',
                                reply_markup=client_button.il_client)
 
 
-async def input_product_part_2(message: types.Message, state=FSMContext):
-    async with state.proxy() as data:
-        data['user_choice'] = message.text
+async def search_products_output(message: types.Message):
+    user_id = message.from_user.id
+    user_input = message.text
 
-    user_data = await state.get_data()      # получаю словарь со всеми записями state
+    get_products = requests.get(f'http://127.0.0.1:8000/api/SearchProductsAPIView/{user_id}?search_text={user_input}')
+    json_products = get_products.json()
 
-    product_info = db_sqlite.SqlDb().get_input_product_from_sql(user_data['user_choice'],
-                                                                user_market_choice[0][message.from_user.id])
-    if len(product_info) == 0:              # Если товар в SQL не найден, переделываем список в форму для фид бэка
-        product_info = [f'Товара {user_data["user_choice"]} не знайдено']
+    for product in json_products:
+        market_name = product['market_name']
+        name = product['product_name']
+        price = product['price']
+        old_price = product['old_price']
+        discount = product['discount']
+        url_img = product['url_img']
 
-    if str(message.from_user.id) == '371752657':        # для админа после сообщений вызываю админ панель кнопок
-        for i in product_info:
-            await bot.send_message(message.from_user.id, i, reply_markup=admin_button.bt_admin)
-    else:                                               # для юзеров после сообщений вызываю обычную панель кнопок
-        for i in product_info:
-            await bot.send_message(message.from_user.id, i, reply_markup=client_button.bt_client)
-    await state.finish()
+        message_text = f"Магазин: {market_name}\n" \
+                       f"Назва продукту: {name}\n" \
+                       f"Нова ціна: {price}\n" \
+                       f"Стара ціна: {old_price}\n" \
+                       f"Знижка: {discount}"
 
+        # downloading photos to RAM
+        get_img = requests.get(url_img)
+        image_bytes = io.BytesIO(get_img.content)
+        photo = types.InputFile(image_bytes, filename='image.jpg')  # create photo for send in message
 
-# Обработка команды 'Показати_всі_існуючі_знижки'
-async def all_product_handler(message: types.Message):
-    # Если юзер выбрал магазины в функции 'Обиріть потрібні маркети'
-    if message.from_user.id in user_market_choice[0] and user_market_choice[0].get(message.from_user.id) != []:
-
-        product_info = db_sqlite.SqlDb().get_all_product_from_sql(user_market_choice[0][message.from_user.id])
-        if str(message.from_user.id) == '371752657':   # для админа после сообщений вызываю админ панель кнопок
-            for i in product_info:
-                try:    # Если телеграмм блочит сообщение ( из за количества ), подождать 10 сек
-                    await bot.send_message(message.from_user.id, i, reply_markup=admin_button.bt_admin)
-                except:
-                    time.sleep(10)
-                    await bot.send_message(message.from_user.id, i, reply_markup=admin_button.bt_admin)
-        else:                                          # для юзеров после сообщений вызываю обычную панель кнопок
-            for i in product_info:
-                try:    # Если телеграмм блочит сообщение ( из за количества ), подождать 10 сек
-                    await bot.send_message(message.from_user.id, i, reply_markup=client_button.bt_client)
-                except:
-                    time.sleep(10)
-                    await bot.send_message(message.from_user.id, i, reply_markup=admin_button.bt_admin)
-
-    else:  # Если юзер не выбрал магазины
-        await bot.send_message(message.from_user.id, 'Спочатку виберіть потрібні вам маркети',
-                               reply_markup=client_button.il_client)
-
-
-# Обработка функции Выбор маркетов
-async def choice_market_handler(message: types.Message):
-    await message.answer('Обиріть потрібні маркети', reply_markup=client_button.il_client)
-
-
-async def choice_market_callback(callback: types.CallbackQuery):
-    res = callback.data.split('_')[1]
-    user_id = callback.from_user.id
-
-    if user_id not in user_market_choice[0]:
-        user_market_choice[0][user_id] = []
-
-    if res in user_market_choice[0][user_id]:           # Если маркет уже был выбран, удалить из списка
-        user_market_choice[0][user_id].remove(res)
-        await callback.answer(f'{res} прибраний зі списку, '
-                              f'ваш поточний список маркетів: {", ".join(user_market_choice[0][user_id])}',
-                              show_alert=True)
-
-    else:                                               # Если Юзер ранее не выбирал маркет, добавить в список
-        user_market_choice[0][user_id].append(res)
-        await callback.answer(f'{res} добавлений до списку, '
-                              f'ваш поточний список маркетів: {", ".join(user_market_choice[0][user_id])}',
-                              show_alert=True)
+        await bot.send_photo(message.from_user.id, photo, caption=message_text, reply_markup=client_button.bt_client)
+        image_bytes.close()     # delete photos from RAM
 
 
 def register_handlers_client(dp: Dispatcher):
-    dp.register_message_handler(command_start, commands=['start', 'help'])
-    dp.register_message_handler(input_product_part_1, commands=['Шукати_продукт_по_назві'])
-    dp.register_message_handler(input_product_part_2, state=EnterProductFSM.user_choice)
-    dp.register_message_handler(all_product_handler, commands=['Показати_всі_існуючі_знижки'])
+    dp.register_message_handler(start_handler, commands=['start', 'help'])
+    dp.register_message_handler(show_site_url, commands=['Наш_сайт'])
     dp.register_message_handler(choice_market_handler, commands=['Вибрати_потрібні_маркети'])
+    dp.register_message_handler(search_products_input, commands=['Шукати_продукт_по_назві'])
+    dp.register_message_handler(search_products_output, state=EnterProductFSM.user_choice)
     dp.register_callback_query_handler(choice_market_callback, Text(startswith='Market_'))
 
 

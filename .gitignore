@@ -1,2 +1,4 @@
-run_bot.bat
-data_base/markets.db
+.idea
+=======
+*.pyc
+__pycache__/
