@@ -1,1 +1,1 @@
-web: railway run python bot_telegram.py
+web: railway run python bot_telegram_start.py
